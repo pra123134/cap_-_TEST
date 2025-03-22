@@ -1,7 +1,5 @@
 import streamlit as st
 import google.generativeai as genai
-import PyPDF2
-import os
 import csv
 from PIL import Image
 import io
@@ -23,14 +21,6 @@ def get_ai_response(prompt, fallback_message="⚠️ AI response unavailable. Pl
     except Exception as e:
         return f"⚠️ AI Error: {str(e)}\n{fallback_message}"
 
-# Function to extract text from PDF
-def extract_text_from_pdf(pdf_file):
-    pdf_reader = PyPDF2.PdfReader(pdf_file)
-    text = ""
-    for page in pdf_reader.pages:
-        text += page.extract_text() or ""
-    return text
-
 # Function to extract data from CSV
 def extract_data_from_csv(csv_file):
     csv_reader = csv.reader(io.StringIO(csv_file.getvalue().decode("utf-8")))
@@ -38,11 +28,10 @@ def extract_data_from_csv(csv_file):
     return "\n".join([", ".join(row) for row in data])
 
 # Function to generate recipe using Gemini API with enhanced multimodal support
-def generate_recipe(user_input, image=None, pdf_text=None, csv_text=None):
+def generate_recipe(user_input, image=None, csv_text=None):
     prompt = f"""
     You are an expert chef. Based on the following inputs, generate a detailed recipe:
     - User Input: {user_input}
-    - PDF Content (if provided): {pdf_text if pdf_text else 'None'}
     - CSV Content (if provided): {csv_text if csv_text else 'None'}
     Provide a recipe that includes:
     - Ingredients list
@@ -69,7 +58,7 @@ def generate_recipe(user_input, image=None, pdf_text=None, csv_text=None):
 def main():
     st.set_page_config(page_title="AI Chef Recipe Generator", layout="wide")
     st.title("🍽️ AI Chef Recipe Generator")
-    st.write("Generate recipes based on your preferences, images, PDF documents, or CSV files!")
+    st.write("Generate recipes based on your preferences, images, or CSV files!")
 
     # User Input Section
     st.header("Step 1: Enter Your Preferences")
@@ -86,17 +75,8 @@ def main():
         image = Image.open(uploaded_image)
         st.image(image, caption="Uploaded Image", use_column_width=True)
 
-    # PDF Upload Section
-    st.header("Step 3: Upload a PDF (Optional)")
-    uploaded_pdf = st.file_uploader("Upload a PDF with additional recipe details or requirements", type=["pdf"])
-    pdf_text = None
-    if uploaded_pdf:
-        pdf_text = extract_text_from_pdf(uploaded_pdf)
-        st.write("Extracted PDF Text:")
-        st.text_area("PDF Content", pdf_text, height=200)
-
     # CSV Upload Section
-    st.header("Step 4: Upload a CSV File (Optional)")
+    st.header("Step 3: Upload a CSV File (Optional)")
     uploaded_csv = st.file_uploader("Upload a CSV file with ingredient lists or preferences", type=["csv"])
     csv_text = None
     if uploaded_csv:
@@ -106,11 +86,11 @@ def main():
 
     # Generate Recipe Button
     if st.button("Generate Recipe"):
-        if not user_input and not image and not pdf_text and not csv_text:
-            st.error("Please provide at least one input (text, image, PDF, or CSV).")
+        if not user_input and not image and not csv_text:
+            st.error("Please provide at least one input (text, image, or CSV).")
         else:
             with st.spinner("Generating your recipe..."):
-                recipe = generate_recipe(user_input, image, pdf_text, csv_text)
+                recipe = generate_recipe(user_input, image, csv_text)
                 st.subheader("Generated Recipe")
                 st.markdown(recipe)
 
