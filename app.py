@@ -1,6 +1,5 @@
 import streamlit as st
 import google.generativeai as genai
-import csv
 from PIL import Image
 import io
 
@@ -21,18 +20,11 @@ def get_ai_response(prompt, fallback_message="⚠️ AI response unavailable. Pl
     except Exception as e:
         return f"⚠️ AI Error: {str(e)}\n{fallback_message}"
 
-# Function to extract data from CSV
-def extract_data_from_csv(csv_file):
-    csv_reader = csv.reader(io.StringIO(csv_file.getvalue().decode("utf-8")))
-    data = [row for row in csv_reader]
-    return "\n".join([", ".join(row) for row in data]) if data else None
-
 # Function to generate recipe using Gemini API with enhanced multimodal support
-def generate_recipe(user_input, image=None, csv_text=None):
+def generate_recipe(user_input, image=None):
     prompt = f"""
     You are an expert chef. Based on the following inputs, generate a detailed recipe:
     - User Input: {user_input if user_input else 'None'}
-    - CSV Content (if provided): {csv_text if csv_text else 'None'}
     Provide a recipe that includes:
     - Ingredients list
     - Step-by-step instructions
@@ -58,7 +50,7 @@ def generate_recipe(user_input, image=None, csv_text=None):
 def main():
     st.set_page_config(page_title="AI Chef Recipe Generator", layout="wide")
     st.title("🍽️ AI Chef Recipe Generator")
-    st.write("Generate recipes based on your preferences, images, or CSV files!")
+    st.write("Generate recipes based on your preferences or images!")
 
     # User Input Section
     user_input = st.text_area("Enter dietary preferences, cuisine type, or available ingredients:", height=150)
@@ -69,19 +61,13 @@ def main():
     if image:
         st.image(image, caption="Uploaded Image", use_column_width=True)
 
-    # CSV Upload Section
-    uploaded_csv = st.file_uploader("Upload a CSV file with ingredient lists or preferences (Optional)", type=["csv"])
-    csv_text = extract_data_from_csv(uploaded_csv) if uploaded_csv else None
-    if csv_text:
-        st.text_area("CSV Content", csv_text, height=200)
-
     # Generate Recipe Button
     if st.button("Generate Recipe"):
-        if not any([user_input, image, csv_text]):
-            st.error("Please provide at least one input (text, image, or CSV).")
+        if not any([user_input, image]):
+            st.error("Please provide at least one input (text or image).")
         else:
             with st.spinner("Generating your recipe..."):
-                recipe = generate_recipe(user_input, image, csv_text)
+                recipe = generate_recipe(user_input, image)
                 st.subheader("Generated Recipe")
                 st.markdown(recipe)
 
