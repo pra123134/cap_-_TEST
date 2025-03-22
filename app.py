@@ -2,6 +2,7 @@ import streamlit as st
 import google.generativeai as genai
 from PIL import Image
 import io
+import csv
 
 # ✅ Configure API Key securely
 if "GOOGLE_API_KEY" in st.secrets:
@@ -46,6 +47,19 @@ def generate_recipe(user_input, image=None):
     except Exception as e:
         return f"⚠️ AI Error: {str(e)}\nAI response unavailable."
 
+# Function to generate and save 25,000 recipes to CSV
+def generate_bulk_recipes():
+    with open("recipes.csv", "w", newline="", encoding="utf-8") as file:
+        writer = csv.writer(file)
+        writer.writerow(["Recipe Name", "Ingredients", "Instructions", "Cooking Time", "Serving Size"])
+        
+        for i in range(25000):
+            user_input = f"Recipe {i+1}"  # Placeholder input
+            recipe_text = generate_recipe(user_input)
+            recipe_lines = recipe_text.split("\n")
+            if len(recipe_lines) >= 4:
+                writer.writerow([recipe_lines[0], recipe_lines[1], recipe_lines[2], recipe_lines[3], "Unknown"])
+
 # ✅ Streamlit UI Configuration
 def main():
     st.set_page_config(page_title="AI Chef Recipe Generator", layout="wide")
@@ -70,6 +84,12 @@ def main():
                 recipe = generate_recipe(user_input, image)
                 st.subheader("Generated Recipe")
                 st.markdown(recipe)
+    
+    # Generate 25,000 Recipes CSV Button
+    if st.button("Generate 25,000 Recipes CSV"):
+        with st.spinner("Generating 25,000 recipes. This may take a while..."):
+            generate_bulk_recipes()
+        st.success("✅ 25,000 recipes have been saved to 'recipes.csv'!")
 
 if __name__ == "__main__":
     main()
