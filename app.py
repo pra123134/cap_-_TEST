@@ -17,6 +17,7 @@ def get_ai_response(prompt, fallback_message="⚠️ AI response unavailable. Pl
     try:
         model = genai.GenerativeModel("gemini-1.5-pro")
         response = model.generate_content(prompt)
+        print(response.text
         return response.text.strip() if hasattr(response, "text") and response.text.strip() else fallback_message
     except Exception as e:
         return f"⚠️ AI Error: {str(e)}\n{fallback_message}"
@@ -54,7 +55,7 @@ def get_ai_hint(scenario):
 
 def extract_score(feedback):
     import re
-    scores = [int(num) for num in re.findall(r'\b\d+\b', feedback) if 0 <= int(num) <= 10]
+    scores = [int(num) for num in re.findall(feedback) if 0 <= int(num) <= 10]
     return scores[-1] if scores else 0
 
 def update_leaderboard(player, score):
