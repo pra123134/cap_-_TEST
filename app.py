@@ -1,8 +1,6 @@
 import streamlit as st
+import pandas as pd
 import google.generativeai as genai
-from PIL import Image
-import io
-import csv
 
 # ✅ Configure API Key securely
 if "GOOGLE_API_KEY" in st.secrets:
@@ -12,8 +10,10 @@ else:
     st.error("⚠️ API Key is missing. Go to Streamlit Cloud → Settings → Secrets and add your API key.")
     st.stop()
 
-# ✅ AI Response Generator
+leaderboard_file = "leaderboard.csv"
+
 def get_ai_response(prompt, fallback_message="⚠️ AI response unavailable. Please try again later."):
+    """Generates AI response using Gemini 1.5 Pro."""
     try:
         model = genai.GenerativeModel("gemini-1.5-pro")
         response = model.generate_content(prompt)
@@ -21,75 +21,84 @@ def get_ai_response(prompt, fallback_message="⚠️ AI response unavailable. Pl
     except Exception as e:
         return f"⚠️ AI Error: {str(e)}\n{fallback_message}"
 
-# Function to generate recipe using Gemini API with enhanced multimodal support
-def generate_recipe(user_input, image=None):
+def generate_ai_scenario():
+    return get_ai_response("Create a realistic restaurant management scenario that requires decision-making.")
+
+def get_ai_suggestions(scenario):
     prompt = f"""
-    You are an expert chef. Based on the following inputs, generate a detailed recipe:
-    - User Input: {user_input if user_input else 'None'}
-    Provide a recipe that includes:
-    - Ingredients list
-    - Step-by-step instructions
-    - Cooking time and serving size
-    - Any dietary considerations mentioned in the input
+    Scenario: {scenario}
+    Generate 4 multiple-choice response options labeled A, B, C, and D.
+    Ensure the options are realistic and applicable to restaurant management.
     """
-    
-    input_data = [prompt]
-    if image:
-        img_byte_arr = io.BytesIO()
-        image.save(img_byte_arr, format='PNG')
-        img_data = img_byte_arr.getvalue()
-        input_data.append({"mime_type": "image/png", "data": img_data})
-    
+    return get_ai_response(prompt)
+
+def get_ai_feedback(scenario, user_choice):
+    prompt = f"""
+    Scenario: {scenario}
+    User's Response: {user_choice}
+
+    Provide:
+    - A brief evaluation of the response
+    - Pros and cons of the choice
+    - A better alternative if applicable
+    - A motivational message if they get it right!
+    - Assign a score from 0 to 10 based on correctness.
+    """
+    feedback = get_ai_response(prompt)
+    score = extract_score(feedback)
+    return feedback, score
+
+def get_ai_hint(scenario):
+    prompt = f"Give a short hint for handling this restaurant scenario wisely: {scenario}"
+    return get_ai_response(prompt)
+
+def extract_score(feedback):
+    import re
+    scores = [int(num) for num in re.findall(r'\b\d+\b', feedback) if 0 <= int(num) <= 10]
+    return scores[-1] if scores else 0
+
+def update_leaderboard(player, score):
     try:
-        model = genai.GenerativeModel("gemini-1.5-pro")
-        response = model.generate_content(input_data)
-        return response.text.strip() if hasattr(response, "text") and response.text.strip() else "⚠️ AI response unavailable."
-    except Exception as e:
-        return f"⚠️ AI Error: {str(e)}\nAI response unavailable."
-
-# Function to generate and save 25,000 recipes to CSV
-def generate_bulk_recipes():
-    with open("recipes.csv", "w", newline="", encoding="utf-8") as file:
-        writer = csv.writer(file)
-        writer.writerow(["Recipe Name", "Ingredients", "Instructions", "Cooking Time", "Serving Size"])
-        
-        for i in range(25000):
-            user_input = f"Recipe {i+1}"  # Placeholder input
-            recipe_text = generate_recipe(user_input)
-            recipe_lines = recipe_text.split("\n")
-            if len(recipe_lines) >= 4:
-                writer.writerow([recipe_lines[0], recipe_lines[1], recipe_lines[2], recipe_lines[3], "Unknown"])
-
-# ✅ Streamlit UI Configuration
-def main():
-    st.set_page_config(page_title="AI Chef Recipe Generator", layout="wide")
-    st.title("🍽️ AI Chef Recipe Generator")
-    st.write("Generate recipes based on your preferences or images!")
-
-    # User Input Section
-    user_input = st.text_area("Enter dietary preferences, cuisine type, or available ingredients:", height=150)
-
-    # Image Upload Section
-    uploaded_image = st.file_uploader("Upload an image of ingredients or a dish (Optional)", type=["jpg", "png", "jpeg"])
-    image = Image.open(uploaded_image) if uploaded_image else None
-    if image:
-        st.image(image, caption="Uploaded Image", use_column_width=True)
-
-    # Generate Recipe Button
-    if st.button("Generate Recipe"):
-        if not any([user_input, image]):
-            st.error("Please provide at least one input (text or image).")
-        else:
-            with st.spinner("Generating your recipe..."):
-                recipe = generate_recipe(user_input, image)
-                st.subheader("Generated Recipe")
-                st.markdown(recipe)
+        df = pd.read_csv(leaderboard_file).set_index("Player")
+    except FileNotFoundError:
+        df = pd.DataFrame(columns=["Player", "Score"]).set_index("Player")
     
-    # Generate 25,000 Recipes CSV Button
-    if st.button("Generate 25,000 Recipes CSV"):
-        with st.spinner("Generating 25,000 recipes. This may take a while..."):
-            generate_bulk_recipes()
-        st.success("✅ 25,000 recipes have been saved to 'recipes.csv'!")
+    df.loc[player, "Score"] = df.get("Score", 0) + score
+    df.reset_index().to_csv(leaderboard_file, index=False)
 
-if __name__ == "__main__":
-    main()
+def display_leaderboard():
+    try:
+        df = pd.read_csv(leaderboard_file)
+        df = df.sort_values(by="Score", ascending=False)
+        st.subheader("🏆 Leaderboard 🏆")
+        st.dataframe(df)
+    except FileNotFoundError:
+        st.info("No leaderboard data available yet.")
+
+# ✅ Streamlit UI
+st.title("🍽️ AI-Powered Restaurant Challenge 🍽️")
+player_name = st.text_input("🎮 Enter your name:")
+
+if player_name:
+    if st.button("Generate AI Scenario"):
+        scenario = generate_ai_scenario()
+        st.subheader("📌 AI-Generated Scenario:")
+        st.write(scenario)
+        
+        hint = get_ai_hint(scenario)
+        st.info(f"💡 AI Hint: {hint}")
+        
+        ai_suggestions = get_ai_suggestions(scenario)
+        st.subheader("🤖 AI-Suggested Responses:")
+        st.write(ai_suggestions)
+        
+        user_choice = st.radio("Select your choice:", ["A", "B", "C", "D"])
+        
+        if st.button("Submit Choice"):
+            ai_feedback, score = get_ai_feedback(scenario, user_choice)
+            st.subheader("🤖 AI Feedback:")
+            st.write(ai_feedback)
+            st.success(f"🏅 Score Assigned by AI: {score} Points")
+            
+            update_leaderboard(player_name, score)
+            display_leaderboard()
