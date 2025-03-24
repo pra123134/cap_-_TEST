@@ -17,7 +17,7 @@ def get_ai_response(prompt, fallback_message="⚠️ AI response unavailable. Pl
     try:
         model = genai.GenerativeModel("gemini-1.5-pro")
         response = model.generate_content(prompt)
-        print(response.text
+        print(response.text)
         return response.text.strip() if hasattr(response, "text") and response.text.strip() else fallback_message
     except Exception as e:
         return f"⚠️ AI Error: {str(e)}\n{fallback_message}"
